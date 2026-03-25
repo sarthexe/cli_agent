@@ -17,7 +17,7 @@ from rich.text import Text
 from rich.theme import Theme
 
 from config.settings import Settings, load_settings
-from llm.gemini_provider import GeminiProvider
+from llm.openai_provider import OpenAIProvider
 from utils.logger import get_logger, setup_logging
 
 __version__ = "0.1.0"
@@ -31,9 +31,10 @@ THEME = Theme({
     "success": "bold green",
     "warning": "bold yellow",
     "error": "bold red",
-    "model.gemini": "bold blue",
-    "model.deepseek": "bold magenta",
-    "model.claude": "bold yellow",
+    "model.tier1": "bold blue",
+    "model.tier2": "bold magenta",
+    "model.tier3": "bold yellow",
+    "model.openai": "bold blue",
     "cost": "dim green",
     "prompt": "bold cyan",
 })
@@ -52,11 +53,11 @@ def show_banner(settings: Settings) -> None:
     banner.append(f"  v{__version__}\n", style="dim")
     banner.append("Autonomous coding agent with intelligent multi-model routing\n\n", style="dim")
     banner.append("Models: ", style="bold")
-    banner.append(f"[T1] {settings.llm.gemini.model}", style="model.gemini")
+    banner.append(f"[T1] {settings.llm.tier1_model}", style="model.tier1")
     banner.append(" → ", style="dim")
-    banner.append(f"[T2] {settings.llm.deepseek.model}", style="model.deepseek")
+    banner.append(f"[T2] {settings.llm.tier2_model}", style="model.tier2")
     banner.append(" → ", style="dim")
-    banner.append(f"[T3] {settings.llm.anthropic.model}", style="model.claude")
+    banner.append(f"[T3] {settings.llm.tier3_model}", style="model.tier3")
     banner.append(f"\nBudget: ", style="bold")
     banner.append(f"${settings.cost.session_budget:.2f}/session", style="cost")
     banner.append(f"  Max iterations: {settings.agent.max_iterations}", style="dim")
@@ -70,21 +71,21 @@ def show_banner(settings: Settings) -> None:
     ))
 
 
-def build_gemini_provider(settings: Settings, model_override: str | None = None) -> GeminiProvider:
-    """Create a Gemini provider instance from resolved settings."""
-    gemini = settings.llm.gemini
-    return GeminiProvider(
-        model=model_override or gemini.model,
-        api_key=gemini.api_key,
-        base_url=gemini.base_url,
-        temperature=gemini.temperature,
+def build_openai_provider(settings: Settings, model_override: str | None = None) -> OpenAIProvider:
+    """Create an OpenAI provider instance from resolved settings."""
+    openai_config = settings.llm.openai
+    return OpenAIProvider(
+        model=model_override or openai_config.model,
+        api_key=openai_config.api_key,
+        base_url=openai_config.base_url,
+        temperature=openai_config.temperature,
     )
 
 
-def render_model_reply(provider: GeminiProvider, reply_text: str) -> None:
+def render_model_reply(provider: OpenAIProvider, reply_text: str) -> None:
     """Render a model reply with a provider label."""
     label = f"[{provider.model}]"
-    console.print(f"[model.gemini]{label}[/model.gemini] {reply_text or '[dim](empty response)[/dim]'}")
+    console.print(f"[model.openai]{label}[/model.openai] {reply_text or '[dim](empty response)[/dim]'}")
 
 
 # ---------------------------------------------------------------------------
@@ -125,13 +126,13 @@ def handle_repl_command(command: str, settings: Settings) -> bool:
 
     elif cmd == "/version":
         console.print(f"\n[info]CLI Agent v{__version__}[/info]")
-        console.print(f"  Default model: {settings.llm.gemini.model}")
+        console.print(f"  Default model: {settings.llm.tier1_model}")
         console.print(f"  Python: {sys.version.split()[0]}\n")
 
     elif cmd == "/cost":
         # TODO: Integrate with CostTracker
         console.print("\n[cost]Session cost: $0.0000[/cost]")
-        console.print("[dim]  Calls: gemini: 0, deepseek: 0, claude: 0[/dim]\n")
+        console.print("[dim]  Calls: gpt-4.1-mini: 0, gpt-4.1: 0, o3-mini: 0[/dim]\n")
 
     elif cmd == "/memory":
         # TODO: Integrate with ProjectMemory
@@ -160,7 +161,7 @@ def handle_repl_command(command: str, settings: Settings) -> bool:
 # REPL Loop
 # ---------------------------------------------------------------------------
 
-def run_repl(settings: Settings, provider: GeminiProvider) -> None:
+def run_repl(settings: Settings, provider: OpenAIProvider) -> None:
     """Run the interactive REPL session."""
     log = get_logger("repl")
     show_banner(settings)
@@ -182,14 +183,14 @@ def run_repl(settings: Settings, provider: GeminiProvider) -> None:
                 break
             continue
 
-        # Day 1 skeleton behavior: prompt -> Gemini -> print.
+        # Day 1 skeleton behavior: prompt -> OpenAI -> print.
         log.info("User prompt received", prompt=user_input)
         try:
-            with console.status(f"[model.gemini]Calling {provider.model}...[/model.gemini]"):
+            with console.status(f"[model.openai]Calling {provider.model}...[/model.openai]"):
                 response = provider.complete(user_input)
         except Exception as e:
-            log.error("Gemini call failed", error=str(e))
-            console.print(f"[error]Gemini request failed: {e}[/error]\n")
+            log.error("OpenAI call failed", error=str(e))
+            console.print(f"[error]OpenAI request failed: {e}[/error]\n")
             continue
 
         render_model_reply(provider, response.text)
@@ -202,18 +203,18 @@ def run_repl(settings: Settings, provider: GeminiProvider) -> None:
 # Single-shot mode
 # ---------------------------------------------------------------------------
 
-def run_single_shot(prompt: str, provider: GeminiProvider) -> None:
+def run_single_shot(prompt: str, provider: OpenAIProvider) -> None:
     """Run the agent once on a single prompt, then exit."""
     log = get_logger("single_shot")
     log.info("Single-shot mode", prompt=prompt)
 
     console.print(f"\n[dim]Running:[/dim] {prompt}")
     try:
-        with console.status(f"[model.gemini]Calling {provider.model}...[/model.gemini]"):
+        with console.status(f"[model.openai]Calling {provider.model}...[/model.openai]"):
             response = provider.complete(prompt)
     except Exception as e:
-        log.error("Gemini call failed", error=str(e))
-        console.print(f"[error]Gemini request failed: {e}[/error]\n")
+        log.error("OpenAI call failed", error=str(e))
+        console.print(f"[error]OpenAI request failed: {e}[/error]\n")
         raise SystemExit(1)
 
     render_model_reply(provider, response.text)
@@ -232,7 +233,7 @@ def run_single_shot(prompt: str, provider: GeminiProvider) -> None:
     "--model", "-m",
     "model_override",
     default=None,
-    help="Override Gemini model for this run (e.g. gemini-2.0-flash).",
+    help="Override OpenAI model for this run (e.g. gpt-4.1-mini).",
 )
 @click.option(
     "--config", "-c",
@@ -287,7 +288,7 @@ def cli(
     log = get_logger("main")
     log.debug("Config loaded", provider=settings.llm.default_provider)
     try:
-        provider = build_gemini_provider(settings, model_override=model_override)
+        provider = build_openai_provider(settings, model_override=model_override)
     except ValueError as e:
         console.print(f"[error]{e}[/error]")
         raise SystemExit(1)

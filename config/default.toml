@@ -1,45 +1,26 @@
 # ~/.cli-agent/config.toml — Default configuration
-# API keys should be set via environment variables:
-#   GEMINI_API_KEY, DEEPSEEK_API_KEY, ANTHROPIC_API_KEY
+# API key should be set via environment variable:
+#   OPENAI_API_KEY
 
 [llm]
-default_provider = "gemini"          # "gemini" | "deepseek" | "anthropic" | "custom"
-fallback_provider = "deepseek"       # Tier 2 escalation
-premium_provider = "anthropic"       # Tier 3 escalation
+default_provider = "openai"
+tier1_model = "gpt-4.1-mini"
+tier2_model = "gpt-4.1"
+tier3_model = "o3-mini"
 
-[llm.gemini]
-model = "gemini-2.0-flash"
-base_url = "https://generativelanguage.googleapis.com/v1beta"
+[llm.openai]
+model = "gpt-4.1-mini"
+base_url = "https://api.openai.com/v1"
 temperature = 0.0
-context_window = 1000000
-
-[llm.deepseek]
-model = "deepseek-chat"
-base_url = "https://api.deepseek.com"
-temperature = 0.0
-context_window = 131072
-
-[llm.anthropic]
-model = "claude-sonnet-4-20250514"
-base_url = "https://api.anthropic.com"
-temperature = 0.0
-context_window = 200000
-
-[llm.custom]
-# OpenAI-compatible endpoint (Ollama, OpenRouter, Groq, Together, etc.)
-model = "qwen3.5:4b"
-base_url = "http://localhost:11434/v1"
-api_key = "ollama"
-temperature = 0.0
-context_window = 262144
+context_window = 128000
 
 [router]
 escalate_after_failures = 2          # Consecutive failures before tier upgrade
 reset_on_success = true              # Reset failure counter on any success
-show_model_in_output = true          # [gemini-flash] prefix on every action
+show_model_in_output = true          # [gpt-4.1-mini] prefix on every action
 
 [cost]
-session_budget = 0.50                # Hard stop at $0.50 per session
+session_budget = 1.00                # Hard stop at $1.00 per session
 alert_at_percent = 80                # Warn at 80% of budget
 log_file = "~/.cli-agent/costs.jsonl"
 

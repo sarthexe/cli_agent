@@ -16,39 +16,24 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class LLMProviderConfig(BaseModel):
     """Configuration for a single LLM provider."""
-    model: str = "gemini-2.0-flash"
-    base_url: str = ""
+    model: str = "gpt-4.1-mini"
+    base_url: str = "https://api.openai.com/v1"
     api_key: str = ""  # Loaded from env vars, never hardcoded
     temperature: float = 0.0
-    context_window: int = 1_000_000
+    context_window: int = 128_000
 
 
 class LLMSettings(BaseModel):
     """Top-level LLM configuration with provider routing."""
-    default_provider: str = "gemini"
-    fallback_provider: str = "deepseek"
-    premium_provider: str = "anthropic"
-    gemini: LLMProviderConfig = Field(default_factory=lambda: LLMProviderConfig(
-        model="gemini-2.0-flash",
-        base_url="https://generativelanguage.googleapis.com/v1beta",
-        context_window=1_000_000,
+    default_provider: str = "openai"
+    openai: LLMProviderConfig = Field(default_factory=lambda: LLMProviderConfig(
+        model="gpt-4.1-mini",
+        base_url="https://api.openai.com/v1",
+        context_window=128_000,
     ))
-    deepseek: LLMProviderConfig = Field(default_factory=lambda: LLMProviderConfig(
-        model="deepseek-chat",
-        base_url="https://api.deepseek.com",
-        context_window=131_072,
-    ))
-    anthropic: LLMProviderConfig = Field(default_factory=lambda: LLMProviderConfig(
-        model="claude-sonnet-4-20250514",
-        base_url="https://api.anthropic.com",
-        context_window=200_000,
-    ))
-    custom: LLMProviderConfig = Field(default_factory=lambda: LLMProviderConfig(
-        model="qwen3.5:4b",
-        base_url="http://localhost:11434/v1",
-        api_key="ollama",
-        context_window=262_144,
-    ))
+    tier1_model: str = "gpt-4.1-mini"
+    tier2_model: str = "gpt-4.1"
+    tier3_model: str = "o3-mini"
 
 
 class RouterSettings(BaseModel):
@@ -60,7 +45,7 @@ class RouterSettings(BaseModel):
 
 class CostSettings(BaseModel):
     """Cost tracking and budget limits."""
-    session_budget: float = 0.50
+    session_budget: float = 1.00
     alert_at_percent: int = 80
     log_file: str = "~/.cli-agent/costs.jsonl"
 
@@ -163,13 +148,12 @@ def load_settings(config_path: str | Path | None = None) -> Settings:
     # 3. Inject API keys from environment variables
     import os
 
-    env_keys = {
-        "gemini": os.environ.get("GEMINI_API_KEY", ""),
-        "deepseek": os.environ.get("DEEPSEEK_API_KEY", ""),
-        "anthropic": os.environ.get("ANTHROPIC_API_KEY", ""),
-    }
-    for provider, key in env_keys.items():
-        if key:
-            data.setdefault("llm", {}).setdefault(provider, {})["api_key"] = key
+    openai_key = os.environ.get("OPENAI_API_KEY", "")
+    if openai_key:
+        data.setdefault("llm", {}).setdefault("openai", {})["api_key"] = openai_key
+
+    openai_base_url = os.environ.get("OPENAI_BASE_URL", "")
+    if openai_base_url:
+        data.setdefault("llm", {}).setdefault("openai", {})["base_url"] = openai_base_url
 
     return Settings(**data)
