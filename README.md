@@ -16,6 +16,6 @@ A terminal-based AI coding agent with a cost-aware multi-model architecture.
 ## Day 1 Scope
 
 - Click CLI entry point
-- Config loading from `.env` (plus optional `~/.cli-agent/config.toml` or `--config`)
+- Config loading from `.env` (plus optional `--config`)
 - OpenAI provider integration
 - Basic REPL (`input -> GPT-4.1-mini -> print`)

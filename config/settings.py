@@ -11,15 +11,11 @@ from dotenv import load_dotenv
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-# ---------------------------------------------------------------------------
-# Sub-models for each TOML section
-# ---------------------------------------------------------------------------
-
 class LLMProviderConfig(BaseModel):
     """Configuration for a single LLM provider."""
     model: str = "gpt-4.1-mini"
     base_url: str = "https://api.openai.com/v1"
-    api_key: str = ""  # Loaded from env vars, never hardcoded
+    api_key: str = ""
     temperature: float = 0.0
     context_window: int = 128_000
 
@@ -85,9 +81,7 @@ class FeatureSettings(BaseModel):
     explain_mode: bool = False
 
 
-# ---------------------------------------------------------------------------
-# Root Settings model
-# ---------------------------------------------------------------------------
+#root settings
 
 class Settings(BaseSettings):
     """Root configuration — assembles all sub-models."""
@@ -105,16 +99,12 @@ class Settings(BaseSettings):
     )
 
 
-# ---------------------------------------------------------------------------
+
 # Loader
-# ---------------------------------------------------------------------------
-
-_USER_CONFIG = Path.home() / ".cli-agent" / "config.toml"
-
 
 def load_settings(config_path: str | Path | None = None) -> Settings:
     """
-    Load settings with priority: explicit path > user config > code defaults.
+    Load settings with priority: explicit path > code defaults.
 
     Environment variables (including values from `.env`) are then applied.
     """
@@ -127,11 +117,6 @@ def load_settings(config_path: str | Path | None = None) -> Settings:
         file_path = Path(config_path)
         with open(file_path, "rb") as f:
             data = tomllib.load(f)
-    else:
-        file_path = _USER_CONFIG
-        if file_path.exists():
-            with open(file_path, "rb") as f:
-                data = tomllib.load(f)
 
     # 3. Inject API keys from environment variables.
 
